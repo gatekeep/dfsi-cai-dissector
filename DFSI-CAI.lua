@@ -101,32 +101,39 @@ do
     end
 
     function dissect_cai_voice(tvb, pinfo, tree)
+        local offset = 0
         local cai_frame_type = tvb(2,1):uint()
+        if cai_frame_type == BLOCK_PT_IN_VOICE_STREAM then
+            offset = offset + 1
+            pinfo.cols.info:append(', Start of Stream')
+            cai_frame_type = tvb(2 + offset,1):uint()
+        end
+
         pinfo.cols.info:append(', '.. labels_cai_frame_type[cai_frame_type])
         local subtree = tree:add(dfsi_cai, tvb(), labels_cai_frame_type[cai_frame_type])
 
         subtree:add(F.P25FrameType, cai_frame_type, nil, label(labels_cai_frame_type, cai_frame_type))
-        subtree:add(F.P25SuperFrame, tvb(15,1):bitfield(4,2))
+        subtree:add(F.P25SuperFrame, tvb(15 + offset,1):bitfield(4,2))
 
-        subtree:add(F.P25Voice,tvb(3,11))
+        subtree:add(F.P25Voice,tvb(3 + offset,11))
 
         if cai_frame_type >= 100 and cai_frame_type <= 105 then
-            subtree:add(F.P25LinkControl,tvb(16,3))
+            subtree:add(F.P25LinkControl,tvb(16 + offset,3))
         elseif cai_frame_type == 106 or cai_frame_type == 115 then
-            subtree:add(F.P25LowSpeedData,tvb(16,2))
+            subtree:add(F.P25LowSpeedData,tvb(16 + offset,2))
         elseif cai_frame_type >= 109 and cai_frame_type <= 114 then
-            subtree:add(F.P25EncryptionSync,tvb(16,3))
+            subtree:add(F.P25EncryptionSync,tvb(16 + offset,3))
         end
 
-        local cai_frame_status = tvb(15,1):bitfield(6,2)
+        local cai_frame_status = tvb(15 + offset,1):bitfield(6,2)
         subtree:add(F.P25Busy, cai_frame_status, nil, label(labels_cai_frame_status, cai_frame_status))
 
-        subtree:add(F.P25ReportErrorTotal, tvb(14,1):bitfield(0,3))
-        subtree:add(F.P25ReportErrorScaled, tvb(14,1):bitfield(3,3))
-        subtree:add(F.P25ReportMute, tvb(14,1):bitfield(6,1))
-        subtree:add(F.P25ReportLost, tvb(14,1):bitfield(7,1))
-        subtree:add(F.P25ReportErrorE4, tvb(15,1):bitfield(0,1))
-        subtree:add(F.P25ReportErrorE1, tvb(15,1):bitfield(1,3))
+        subtree:add(F.P25ReportErrorTotal, tvb(14 + offset,1):bitfield(0,3))
+        subtree:add(F.P25ReportErrorScaled, tvb(14 + offset,1):bitfield(3,3))
+        subtree:add(F.P25ReportMute, tvb(14 + offset,1):bitfield(6,1))
+        subtree:add(F.P25ReportLost, tvb(14 + offset,1):bitfield(7,1))
+        subtree:add(F.P25ReportErrorE4, tvb(15 + offset,1):bitfield(0,1))
+        subtree:add(F.P25ReportErrorE1, tvb(15 + offset,1):bitfield(1,3))
     end
 
     function dissect_start_of_stream(tvb, pinfo, tree)
@@ -180,6 +187,8 @@ BLOCK_PT_VOTER_CONTROL = 13
 BLOCK_PT_TX_KEY_ACK = 14
 BLOCK_PT_MANUFACTURER_SPECIFIC_START = 63
 BLOCK_PT_MANUFACTURER_SPECIFIC_END = 127
+
+BLOCK_PT_IN_VOICE_STREAM = 137
 
 labels_compact = {}
 labels_compact[0] = "Reserved"
